@@ -3,14 +3,10 @@ defmodule ExIRC.Session do
 
   require Logger
 
+  alias ExIRC.Client
+  alias ExIRC.Config
   alias ExIRC.Protocol
   alias ExIRC.Session
-  alias ExIRC.Client
-
-  # TODO: Fix this
-  @host "localhost"
-  @version "0.0.1"
-  @server_name "andromeda"
 
   # Client
 
@@ -90,9 +86,9 @@ defmodule ExIRC.Session do
 
   def handle_cast({:finish_registration, %{nickname: nickname, user: _user}}, %{step: "registration"} = client) do
     echo(self(), "001 #{nickname} :Hi, welcome to IRC")
-    echo(self(), "002 #{nickname} :Your host is #{@host}, running version ExIRC #{@version}")
+    echo(self(), "002 #{nickname} :Your host is #{Config.hostname()}, running version ExIRC #{Config.version()}")
     echo(self(), "003 #{nickname} :This server was created recently")
-    echo(self(), "004 #{nickname} #{@server_name} ExIRC-#{@version} o o")
+    echo(self(), "004 #{nickname} #{Config.server_name()} ExIRC-#{Config.version()} o o")
 
     new_client = Client.set_registered(client)
 
@@ -113,7 +109,7 @@ defmodule ExIRC.Session do
 
   def handle_cast({:recv, "PING " <> origin}, client) do
     # TODO: handle no origin
-    echo(self(), "PONG #{@server_name} :#{origin}")
+    echo(self(), "PONG #{Config.server_name()} :#{origin}")
 
     {:noreply, client}
   end
