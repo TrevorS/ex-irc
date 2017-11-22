@@ -6,6 +6,7 @@ defmodule ExIRC.Application do
       ExIRC,
       ExIRC.Client.Store,
       ExIRC.Nickname.Store,
+      ExIRC.Channel.Store,
       ExIRC.Session.Supervisor
     ]
 

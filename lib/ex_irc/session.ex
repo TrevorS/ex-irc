@@ -7,8 +7,12 @@ defmodule ExIRC.Session do
   alias ExIRC.Config
   alias ExIRC.Protocol
   alias ExIRC.Session
+  alias ExIRC.Channel
+  alias ExIRC.Utils
+
   alias ExIRC.Client.Store, as: CS
   alias ExIRC.Nickname.Store, as: NS
+  alias ExIRC.Channel.Store, as: CNS
 
   # Client
 
@@ -30,6 +34,10 @@ defmodule ExIRC.Session do
 
   def finish_registration(pid, new_client) do
     GenServer.cast(pid, {:finish_registration, new_client})
+  end
+
+  def names(pid, channel_names_string) do
+    GenServer.cast(pid, {:names, channel_names_string})
   end
 
   # Server
@@ -105,7 +113,17 @@ defmodule ExIRC.Session do
     {:noreply, new_client}
   end
 
+  def handle_cast({:recv, "MODE #" <> mode_data}, client) do
+    # TODO: Handle setting and getting channel modes
+    message = "324 #{client.nickname} #{mode_data}"
+
+    echo(self(), message)
+
+    {:noreply, client}
+  end
+
   def handle_cast({:recv, "MODE " <> mode_data}, client) do
+    # TODO: Handle channel modes
     # TODO: Check nickname against session nickname
     [_nickname, action] = String.split(mode_data)
 
@@ -128,6 +146,61 @@ defmodule ExIRC.Session do
 
   # TODO: handle QUIT
 
+  def handle_cast({:recv, "JOIN " <> channel_name}, client) do
+    Logger.info("#{client.nickname} is joining #{channel_name}")
+    # TODO: handle case insensitive channel names
+    new_channel =
+      case CNS.lookup(channel_name) do
+        nil ->
+          Channel.new(name: channel_name)
+        channel ->
+          channel
+      end |> Channel.add_member(client)
+
+    new_client = Client.add_channel(client, new_channel)
+
+    update_stores(new_client, new_channel)
+
+    message =
+      case new_channel.topic do
+        nil -> "331 #{client.nickname} #{new_channel.name} :No topic is set"
+        topic -> "332 #{client.nickname} #{new_channel.name} :#{topic}"
+      end
+
+    echo(self(), message)
+
+    names(self(), new_channel.name)
+
+    {:noreply, new_client}
+  end
+
+  def handle_cast({:names, channel_names_string}, client) do
+    # TODO properly handle multiple channels and no channels
+    channel_names = String.split(channel_names_string, ", ")
+
+    channel_name = List.first(channel_names)
+
+    channel = CNS.lookup(channel_name)
+
+    message_prefix = "353 #{client.nickname} = #{channel.name} :"
+
+    IO.inspect(channel.members, label: "channel members")
+
+    names =
+      channel.members
+      |> Utils.List.pluck(:nickname)
+      |> Enum.join(" ")
+
+    message = "#{message_prefix}#{names}"
+
+    message_end = "366 #{client.nickname} #{channel.name} :End of NAMES list"
+
+    echo(self(), message)
+    echo(self(), message_end)
+
+    {:noreply, client}
+  end
+
   def handle_cast({:echo, message}, %{socket: socket} = client) do
     Logger.info("echoing message: #{inspect message}")
 
@@ -139,8 +212,14 @@ defmodule ExIRC.Session do
   defp update_stores(%Client{nickname: nickname} = new_client)
     when is_nil(nickname), do: CS.insert_or_update(new_client)
 
-  defp update_stores(%Client{nickname: _nickname} = new_client) do
+  defp update_stores(%Client{} = new_client) do
     CS.insert_or_update(new_client)
     NS.insert_or_update(new_client)
+  end
+
+  defp update_stores(%Client{} = new_client, %Channel{} = new_channel) do
+    CS.insert_or_update(new_client)
+    NS.insert_or_update(new_client)
+    CNS.insert_or_update(new_channel)
   end
 end

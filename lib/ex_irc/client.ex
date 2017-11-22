@@ -1,6 +1,8 @@
 defmodule ExIRC.Client do
+  alias ExIRC.Utils
+
   defstruct socket: nil, nickname: nil, user: nil, host: nil,
-    realname: nil, invisible: false, step: "registration"
+    channels: [], realname: nil, invisible: false, step: "registration"
 
   def new(socket: socket) do
     %__MODULE__{socket: socket}
@@ -24,5 +26,13 @@ defmodule ExIRC.Client do
 
   def set_registered(client) do
     %{ client | step: "registered" }
+  end
+
+  def add_channel(client, channel) do
+    update_in(client.channels, &Utils.List.prepend(&1, channel))
+  end
+
+  def remove_channel(client, channel) do
+    update_in(client.channels, &List.delete(&1, channel))
   end
 end
