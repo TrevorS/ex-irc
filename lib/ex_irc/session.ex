@@ -5,6 +5,7 @@ defmodule ExIRC.Session do
 
   alias ExIRC.Protocol
   alias ExIRC.Session
+  alias ExIRC.Client
 
   # TODO: Fix this
   @host "localhost"
@@ -29,8 +30,8 @@ defmodule ExIRC.Session do
     GenServer.cast(pid, {:echo, message})
   end
 
-  def finish_registration(pid, new_state) do
-    GenServer.cast(pid, {:finish_registration, new_state})
+  def finish_registration(pid, new_client) do
+    GenServer.cast(pid, {:finish_registration, new_client})
   end
 
   # Server
@@ -38,95 +39,90 @@ defmodule ExIRC.Session do
   def init(socket) do
     Logger.info("Session starting, socket: #{inspect socket}")
 
-    initial_state = %{
-      socket: socket,
-      nickname: nil,
-      user: nil,
-      host: nil,
-      realname: nil,
-      invisible: false,
-      step: "registration"
-    }
+    client = Client.new(socket: socket)
 
-    {:ok, initial_state}
+    {:ok, client}
   end
 
-  def handle_cast({:recv, "CAP LS"}, state) do
+  def handle_cast({:recv, "CAP LS"}, client) do
     Logger.info("Session received capabilities list request")
 
     message = "CAP * LS"
 
     echo(self(), message)
 
-    {:noreply, state}
+    {:noreply, client}
   end
 
   # TODO: Should wait on CAP END to process registration.
-  def handle_cast({:recv, "CAP END"}, state) do
-    {:noreply, state}
+  def handle_cast({:recv, "CAP END"}, client) do
+    {:noreply, client}
   end
 
-  def handle_cast({:recv, "NICK " <> nickname}, %{step: "registration"} = state) do
-    new_state = %{ state | nickname: nickname }
+  def handle_cast({:recv, "NICK " <> nickname}, %{step: "registration"} = client) do
+    new_client = Client.set_nickname(client, nickname)
 
-    finish_registration(self(), new_state)
+    finish_registration(self(), new_client)
 
-    {:noreply, new_state}
+    {:noreply, new_client}
   end
 
-  def handle_cast({:recv, "USER " <> user_data}, %{step: "registration"} = state) do
+  def handle_cast({:recv, "USER " <> user_data}, %{step: "registration"} = client) do
     [user, _mode, _unused, ":" <> realname] = String.split(user_data)
 
-    new_state = %{ state | user: user, realname: realname }
+    new_client =
+      client
+      |> Client.set_user(user)
+      |> Client.set_realname(realname)
 
-    finish_registration(self(), new_state)
+    finish_registration(self(), new_client)
 
-    {:noreply, new_state}
+    {:noreply, new_client}
   end
 
-  def handle_cast({:finish_registration, %{nickname: nil}}, %{step: "registration"} = state) do
-    {:noreply, state}
+  def handle_cast({:finish_registration, %{nickname: nil}}, %{step: "registration"} = client) do
+    {:noreply, client}
   end
 
-  def handle_cast({:finish_registration, %{user: nil}}, %{step: "registration"} = state) do
-    {:noreply, state}
+  def handle_cast({:finish_registration, %{user: nil}}, %{step: "registration"} = client) do
+    {:noreply, client}
   end
 
-  def handle_cast({:finish_registration, %{nickname: nickname, user: _user}}, %{step: "registration"} = state) do
+  def handle_cast({:finish_registration, %{nickname: nickname, user: _user}}, %{step: "registration"} = client) do
     echo(self(), "001 #{nickname} :Hi, welcome to IRC")
     echo(self(), "002 #{nickname} :Your host is #{@host}, running version ExIRC #{@version}")
     echo(self(), "003 #{nickname} :This server was created recently")
     echo(self(), "004 #{nickname} #{@server_name} ExIRC-#{@version} o o")
 
-    new_state = %{ state | step: "registered"}
+    new_client = Client.set_registered(client)
 
-    {:noreply, new_state}
+    {:noreply, new_client}
   end
 
-  def handle_cast({:recv, "MODE " <> mode_data}, state) do
+  def handle_cast({:recv, "MODE " <> mode_data}, client) do
     # TODO: Check nickname against session nickname
     [_nickname, action] = String.split(mode_data)
 
     # TODO: handle more than invisible
     invisible = String.starts_with?(action, "+")
 
-    new_state = %{ state | invisible: invisible }
+    new_client = Client.set_invisible(client, invisible)
 
-    {:noreply, new_state}
+    {:noreply, new_client}
   end
 
-  def handle_cast({:recv, "PING " <> origin}, state) do
+  def handle_cast({:recv, "PING " <> origin}, client) do
     # TODO: handle no origin
     echo(self(), "PONG #{@server_name} :#{origin}")
 
-    {:noreply, state}
+    {:noreply, client}
   end
 
-  def handle_cast({:echo, message}, %{socket: socket} = state) do
+  def handle_cast({:echo, message}, %{socket: socket} = client) do
     Logger.info("echoing message: #{inspect message}")
 
     Protocol.echo(socket, message)
 
-    {:noreply, state}
+    {:noreply, client}
   end
 end
