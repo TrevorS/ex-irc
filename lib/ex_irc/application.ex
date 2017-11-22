@@ -4,6 +4,8 @@ defmodule ExIRC.Application do
   def start(_type, _args) do
     children = [
       ExIRC,
+      ExIRC.Client.Store,
+      ExIRC.Nickname.Store,
       ExIRC.Session.Supervisor
     ]
 

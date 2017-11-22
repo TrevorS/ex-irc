@@ -114,6 +114,8 @@ defmodule ExIRC.Session do
     {:noreply, client}
   end
 
+  # TODO: handle QUIT
+
   def handle_cast({:echo, message}, %{socket: socket} = client) do
     Logger.info("echoing message: #{inspect message}")
 
