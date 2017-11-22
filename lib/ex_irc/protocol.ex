@@ -26,11 +26,12 @@ defmodule ExIRC.Protocol do
 
     :ok = :ranch.accept_ack(ref)
 
-    :ok = transport.setopts(socket, [active: true])
+    :ok = transport.setopts(socket, active: true)
 
     GenServer.cast(self(), :start_session)
 
-    :gen_server.enter_loop(__MODULE__, [], %{socket: socket, transport: transport})
+    :gen_server.enter_loop(__MODULE__, [],
+      %{socket: socket, transport: transport})
   end
 
   def handle_cast(:start_session, state) do

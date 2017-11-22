@@ -22,7 +22,8 @@ defmodule ExIRC.Mixfile do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ranch, "~> 1.4"}
+      {:ranch, "~> 1.4"},
+      {:credo, "~> 0.8.10"}
     ]
   end
 end

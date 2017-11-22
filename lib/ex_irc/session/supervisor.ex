@@ -6,7 +6,8 @@ defmodule ExIRC.Session.Supervisor do
   end
 
   def start_child(socket_pid) do
-    child_spec = worker(ExIRC.Session, [socket_pid], [id: socket_pid, restart: :transient])
+    child_spec = worker(ExIRC.Session, [socket_pid],
+      id: socket_pid, restart: :transient)
 
     Supervisor.start_child(__MODULE__, child_spec)
   end
