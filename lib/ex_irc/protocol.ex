@@ -53,9 +53,12 @@ defmodule ExIRC.Protocol do
   def handle_info({:tcp, _socket, data}, state) do
     case state do
       %{session: pid} ->
-        message = String.trim(data)
+        messages =
+          data
+          |> String.trim()
+          |> String.split("\r\n")
 
-        Session.recv(pid, message)
+        Enum.each(messages, &Session.recv(pid, &1))
       _ ->
         Logger.info("state: #{inspect state}")
         Logger.info("data: #{inspect data}")
