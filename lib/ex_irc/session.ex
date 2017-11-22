@@ -7,6 +7,8 @@ defmodule ExIRC.Session do
   alias ExIRC.Config
   alias ExIRC.Protocol
   alias ExIRC.Session
+  alias ExIRC.Client.Store, as: CS
+  alias ExIRC.Nickname.Store, as: NS
 
   # Client
 
@@ -35,9 +37,11 @@ defmodule ExIRC.Session do
   def init(socket) do
     Logger.info("Session starting, socket: #{inspect socket}")
 
-    client = Client.new(socket: socket)
+    new_client = Client.new(socket: socket)
 
-    {:ok, client}
+    update_stores(new_client)
+
+    {:ok, new_client}
   end
 
   def handle_cast({:recv, "CAP LS"}, client) do
@@ -58,6 +62,8 @@ defmodule ExIRC.Session do
   def handle_cast({:recv, "NICK " <> nickname}, %{step: "registration"} = client) do
     new_client = Client.set_nickname(client, nickname)
 
+    update_stores(new_client)
+
     finish_registration(self(), new_client)
 
     {:noreply, new_client}
@@ -70,6 +76,8 @@ defmodule ExIRC.Session do
       client
       |> Client.set_user(user)
       |> Client.set_realname(realname)
+
+    update_stores(new_client)
 
     finish_registration(self(), new_client)
 
@@ -92,6 +100,8 @@ defmodule ExIRC.Session do
 
     new_client = Client.set_registered(client)
 
+    update_stores(new_client)
+
     {:noreply, new_client}
   end
 
@@ -103,6 +113,8 @@ defmodule ExIRC.Session do
     invisible = String.starts_with?(action, "+")
 
     new_client = Client.set_invisible(client, invisible)
+
+    update_stores(new_client)
 
     {:noreply, new_client}
   end
@@ -122,5 +134,13 @@ defmodule ExIRC.Session do
     Protocol.echo(socket, message)
 
     {:noreply, client}
+  end
+
+  defp update_stores(%Client{nickname: nickname} = new_client)
+    when is_nil(nickname), do: CS.insert_or_update(new_client)
+
+  defp update_stores(%Client{nickname: _nickname} = new_client) do
+    CS.insert_or_update(new_client)
+    NS.insert_or_update(new_client)
   end
 end

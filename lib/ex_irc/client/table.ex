@@ -7,8 +7,8 @@ defmodule ExIRC.Client.Table do
     :ets.new(@table, [:named_table])
   end
 
-  def insert(socket, %Client{} = client) do
-    :ets.insert_new(@table, {socket, client})
+  def insert_or_update(socket, %Client{} = client) do
+    :ets.insert(@table, {socket, client})
   end
 
   def delete(socket) do

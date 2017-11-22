@@ -7,8 +7,8 @@ defmodule ExIRC.Nickname.Table do
     :ets.new(@table, [:named_table, :public])
   end
 
-  def insert(nickname, %Client{} = client) do
-    :ets.insert_new(@table, {nickname, client})
+  def insert_or_update(nickname, %Client{} = client) do
+    :ets.insert(@table, {nickname, client})
   end
 
   def delete(nickname) do

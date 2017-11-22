@@ -16,8 +16,8 @@ defmodule ExIRC.Nickname.Store do
     Table.lookup(socket)
   end
 
-  def insert(%Client{nickname: nickname} = client) do
-    GenServer.call(@name, {:insert, nickname, client})
+  def insert_or_update(%Client{nickname: nickname} = client) do
+    GenServer.call(@name, {:insert_or_update, nickname, client})
   end
 
   def delete(%Client{nickname: nickname}) do
@@ -32,8 +32,8 @@ defmodule ExIRC.Nickname.Store do
     {:ok, nil}
   end
 
-  def handle_call({:insert, nickname, client}, _from, state) do
-    result = Table.insert(nickname, client)
+  def handle_call({:insert_or_update, nickname, client}, _from, state) do
+    result = Table.insert_or_update(nickname, client)
 
     {:reply, result, state}
   end
